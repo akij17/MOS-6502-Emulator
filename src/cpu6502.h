@@ -2,7 +2,7 @@
 
 class Bus;
 
-class olc6502 {
+class cpu6502 {
     private:
 
     Bus *bus = nullptr;
@@ -11,8 +11,8 @@ class olc6502 {
 
     struct INSTRUCTION {
         std::string name;
-        uint8_t(olc6502::*operate)(void) = nullptr;
-        uint8_t(olc6502::*addrmode)(void) = nullptr;
+        uint8_t(cpu6502::*operate)(void) = nullptr;
+        uint8_t(cpu6502::*addrmode)(void) = nullptr;
         uint8_t cycles = 0;
     };
 
@@ -21,8 +21,8 @@ class olc6502 {
 
     public:
 
-    olc6502();
-    ~olc6502();
+    cpu6502();
+    ~cpu6502();
 
     enum FLAGS {
         C = (1 << 0),

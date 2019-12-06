@@ -1,9 +1,9 @@
-#include "olc6502.h";
+#include "cpu6502.h";
 
-olc6502::olc6502() {
+cpu6502::cpu6502() {
     // Instruction table of 6502 CPU
     // Compiled by javidx9 and his wife
-    using a = olc6502;
+    using a = cpu6502;
     lookup = 
 	{
 		{ "BRK", &a::BRK, &a::IMM, 7 },{ "ORA", &a::ORA, &a::IZX, 6 },{ "???", &a::XXX, &a::IMP, 2 },{ "???", &a::XXX, &a::IMP, 8 },{ "???", &a::NOP, &a::IMP, 3 },{ "ORA", &a::ORA, &a::ZP0, 3 },{ "ASL", &a::ASL, &a::ZP0, 5 },{ "???", &a::XXX, &a::IMP, 5 },{ "PHP", &a::PHP, &a::IMP, 3 },{ "ORA", &a::ORA, &a::IMM, 2 },{ "ASL", &a::ASL, &a::IMP, 2 },{ "???", &a::XXX, &a::IMP, 2 },{ "???", &a::NOP, &a::IMP, 4 },{ "ORA", &a::ORA, &a::ABS, 4 },{ "ASL", &a::ASL, &a::ABS, 6 },{ "???", &a::XXX, &a::IMP, 6 },
@@ -25,21 +25,21 @@ olc6502::olc6502() {
 	};
 }
 
-olc6502::~olc6502() {
+cpu6502::~cpu6502() {
 
 }
 
-uint8_t olc6502::read(uint16_t addr) {
+uint8_t cpu6502::read(uint16_t addr) {
     return bus->read(addr, false);
 }
 
-void olc6502::write(uint16_t addr, uint8_t data) {
+void cpu6502::write(uint16_t addr, uint8_t data) {
     bus->write(addr, data);
 }
 
 
 // Inaccurate clock cycle implementation
-void olc6502::clock() {
+void cpu6502::clock() {
     if(cycles == 0) {
         // Cycle begin
 		// Read the code from the current PC location and increment it
@@ -59,7 +59,7 @@ void olc6502::clock() {
 	cycles--;
 }
 
-void olc6502::reset() {
+void cpu6502::reset() {
 	a = 0;
 	x  = 0;
 	y = 0;
@@ -80,7 +80,7 @@ void olc6502::reset() {
 }
 
 // Maskable Interrupt
-void olc6502::irq() {
+void cpu6502::irq() {
 	if(getFlag(I) == 0) {
 		// Interrupt occured
 		// Write to stack current program counter
@@ -106,7 +106,7 @@ void olc6502::irq() {
 }
 
 // Non Maskable Interrupt
-void olc6502::nmi() {
+void cpu6502::nmi() {
 	write(0x0100 + stack_ptr, (pc >> 8) & 0x00FF);
 	stack_ptr--;
 	write(0x0100 + stack_ptr, pc & 0x00FF);
@@ -126,11 +126,11 @@ void olc6502::nmi() {
 	cycles = 8;
 }
 
-void olc6502::getFlag(FLAGS f) {
+void cpu6502::getFlag(FLAGS f) {
 	return ((status & f) > 0) ? 1 : 0;
 }
 
-void olc6502::setFlag(FLAGS f, bool val) {
+void cpu6502::setFlag(FLAGS f, bool val) {
 	if(val)
 		status |= f;
 	else
@@ -143,38 +143,38 @@ void olc6502::setFlag(FLAGS f, bool val) {
 // Used to refer to the address spaces that exist on our device (in this case RAM)
 // Can be addressed in absolute or relative manners
 
-uint8_t olc6502::IMP() {								// Implied Return with fetching from A-reg
+uint8_t cpu6502::IMP() {								// Implied Return with fetching from A-reg
 	fetched = a;
 	return 0;
 }
 
-uint8_t olc6502::IMM() {								// Immediate Return with PC increment
+uint8_t cpu6502::IMM() {								// Immediate Return with PC increment
 	addr_abs = pc++;
 	return 0;
 }
 
-uint8_t olc6502::ZP0() {								// Zero Page Addressing
+uint8_t cpu6502::ZP0() {								// Zero Page Addressing
 	addr_abs = read(pc);
 	pc++;
 	addr_abs &= 0x00FF;
 	return 0;
 }
 
-uint8_t olc6502::ZPX() {								// Zero Page Addressing with X-reg offset
+uint8_t cpu6502::ZPX() {								// Zero Page Addressing with X-reg offset
 	addr_abs = (read(pc) + x);
 	pc++;
 	addr_abs &= 0x00FF;
 	return 0;
 }
 
-uint8_t olc6502::ZPY() {								// Zero Page Addressing with Y-reg offset
+uint8_t cpu6502::ZPY() {								// Zero Page Addressing with Y-reg offset
 	addr_abs = (read(pc) + y);
 	pc++;
 	addr_abs &= 0x00FF;
 	return 0;
 }
 
-uint8_t olc6502::ABS() {								// Absolute Addressing
+uint8_t cpu6502::ABS() {								// Absolute Addressing
 	uint16_t low = read(pc);
 	pc++;
 	uint16_t high = read(pc);
@@ -185,7 +185,7 @@ uint8_t olc6502::ABS() {								// Absolute Addressing
 	return 0;
 }
 
-uint8_t olc6502::ABX() {								// Absolute Addressing X-reg offset
+uint8_t cpu6502::ABX() {								// Absolute Addressing X-reg offset
 	uint16_t low = read(pc);
 	pc++;
 	uint16_t high = read(pc);
@@ -202,7 +202,7 @@ uint8_t olc6502::ABX() {								// Absolute Addressing X-reg offset
 
 }
 
-uint8_t olc6502::ABY() {								// Absolute Addressing Y-reg offset
+uint8_t cpu6502::ABY() {								// Absolute Addressing Y-reg offset
 	uint16_t low = read(pc);
 	pc++;
 	uint16_t high = read(pc);
@@ -219,7 +219,7 @@ uint8_t olc6502::ABY() {								// Absolute Addressing Y-reg offset
 
 }
 
-uint8_t olc6502::IND() {								// Indirect Addressing
+uint8_t cpu6502::IND() {								// Indirect Addressing
 	uint16_t ptr_low = read(pc);
 	pc++;
 	uint16_t ptr_high = read(pc);
@@ -235,7 +235,7 @@ uint8_t olc6502::IND() {								// Indirect Addressing
 	}
 }
 
-uint8_t olc6502::IZX()
+uint8_t cpu6502::IZX()
 {
 	uint16_t t = read(pc);
 	pc++;
@@ -248,7 +248,7 @@ uint8_t olc6502::IZX()
 	return 0;
 }
 
-uint8_t olc6502::IZY()
+uint8_t cpu6502::IZY()
 {
 	uint16_t t = read(pc);
 	pc++;
@@ -265,7 +265,7 @@ uint8_t olc6502::IZY()
 		return 0;
 }
 
-uint8_t olc6502::REL() {								// Relative Addressing mode
+uint8_t cpu6502::REL() {								// Relative Addressing mode
 	addr_rel = read(pc);
 	pc++;
 	if (addr_rel & 0x80)
@@ -276,14 +276,14 @@ uint8_t olc6502::REL() {								// Relative Addressing mode
 // Instructions
 
 // We have the address now we need to fetch
-uint8_t olc6502::fetch() {
-	if(!(lookup[opcode].addrmode == &olc6502::IMP))
+uint8_t cpu6502::fetch() {
+	if(!(lookup[opcode].addrmode == &cpu6502::IMP))
 		fetched = read(addr_abs);
 	return fetched;
 }
 
 // Bitwise AND
-uint8_t olc6502::AND() {
+uint8_t cpu6502::AND() {
 	fetch();
 	a = a & fetched;
 	setFlag(Z, a == 0x00);
@@ -292,7 +292,7 @@ uint8_t olc6502::AND() {
 }
 
 // Branch
-uint8_t olc6502::BCS() {
+uint8_t cpu6502::BCS() {
 	if(getFlag(C) == 1) {
 		cycles++;
 		addr_abs = pc + addr_rel;
@@ -307,30 +307,30 @@ uint8_t olc6502::BCS() {
 }
 
 // Clear Flags
-uint8_t olc6502::CLC() {
+uint8_t cpu6502::CLC() {
 	setFlag(C, false);
 	return 0;
 }
 
-uint8_t olc6502::CLD() {
+uint8_t cpu6502::CLD() {
 	setFlag(D, false);
 	return 0;
 }
 
-uint8_t olc6502::CLI()
+uint8_t cpu6502::CLI()
 {
 	SetFlag(I, false);
 	return 0;
 }
 
-uint8_t olc6502::CLV()
+uint8_t cpu6502::CLV()
 {
 	SetFlag(V, false);
 	return 0;
 }
 
 // Addition (accounting for overflow)
-uint8_t olc6502::ADC() {
+uint8_t cpu6502::ADC() {
 	fetch();
 	uint16_t temp = (uint16_t)a + (uint16_t)fetched + (uint16_t)getFlag(C);
 	setFlag(C, temp > 255);
@@ -347,7 +347,7 @@ uint8_t olc6502::ADC() {
 }
 
 // Subtraction 
-uint8_t olc6502::SBC() {
+uint8_t cpu6502::SBC() {
 	fetched();
 
 	uint8_t value = ((uint8_t)fetched) ^ 0x00FF;
@@ -367,14 +367,14 @@ uint8_t olc6502::SBC() {
 
 
 // Push A-reg to STACK
-uint8_t olc6502::PHA() {
+uint8_t cpu6502::PHA() {
 	// 6502 stack pointer = 0x0100
 	write(0x0100 + stack_ptr, a);
 	stack_ptr--;
 	return 0;
 }
 
-uint8_t olc6502::PLA() {
+uint8_t cpu6502::PLA() {
 	stack_ptr++;
 	a = read(0x0100 + stack_ptr);
 	setFlag(Z, a == 0x00);
@@ -383,7 +383,7 @@ uint8_t olc6502::PLA() {
 	return 0;
 }
 
-uint8_t olc6502::RTI()
+uint8_t cpu6502::RTI()
 {
 	stkp++;
 	status = read(0x0100 + stkp);

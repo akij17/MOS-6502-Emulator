@@ -9,7 +9,7 @@ class Bus {
     ~Bus();
 
     //Devices
-    olc6502 cpu;
+    cpu6502 cpu;
     std::array<uint8_t, 64 * 1024> ram; 
 
     //Bus read/write methods
