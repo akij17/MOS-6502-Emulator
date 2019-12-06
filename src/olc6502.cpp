@@ -36,3 +36,172 @@ uint8_t olc6502::read(uint16_t addr) {
 void olc6502::write(uint16_t addr, uint8_t data) {
     bus->write(addr, data);
 }
+
+
+// Inaccurate clock cycle implementation
+void olc6502::clock() {
+    if(cycles == 0) {
+        // Cycle begin
+		// Read the code from the current PC location and increment it
+		opcode = read(pc);
+		pc++;
+
+		// Read the cycles for the instruction
+		cycles = lookup[opcode].cycles;
+
+		// Call the methods associated with that instruction
+		uint8_t additional_cycles1 = (this->*lookup[opcode].addrmode)();
+		uint8_t additional_cycles2 = (this->*lookup[opcode].operate)();
+		
+		cycles += (additional_cycles1 & additional_cycles2);
+    }
+
+	cycles--;
+}
+
+void olc6502::getFlag(FLAGS f) {
+	return ((status & f) > 0) ? 1 : 0;
+}
+
+void olc6502::setFlag(FLAGS f, bool val) {
+	if(val)
+		status |= f;
+	else
+		status &= ~f;
+}
+
+// Operations 
+
+// Addressing Modes
+// Used to refer to the address spaces that exist on our device (in this case RAM)
+// Can be addressed in absolute or relative manners
+
+uint8_t olc6502::IMP() {								// Implied Return with fetching from A-reg
+	fetched = a;
+	return 0;
+}
+
+uint8_t olc6502::IMM() {								// Immediate Return with PC increment
+	addr_abs = pc++;
+	return 0;
+}
+
+uint8_t olc6502::ZP0() {								// Zero Page Addressing
+	addr_abs = read(pc);
+	pc++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+uint8_t olc6502::ZPX() {								// Zero Page Addressing with X-reg offset
+	addr_abs = (read(pc) + x);
+	pc++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+uint8_t olc6502::ZPY() {								// Zero Page Addressing with Y-reg offset
+	addr_abs = (read(pc) + y);
+	pc++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+uint8_t olc6502::ABS() {								// Absolute Addressing
+	uint16_t low = read(pc);
+	pc++;
+	uint16_t high = read(pc);
+	pc++;
+
+	addr_abs = (high << 8) | low;
+
+	return 0;
+}
+
+uint8_t olc6502::ABX() {								// Absolute Addressing X-reg offset
+	uint16_t low = read(pc);
+	pc++;
+	uint16_t high = read(pc);
+	pc++;
+
+	addr_abs = (high << 8) | low;
+	addr_abs += x;
+
+	// Do we need an extra cpu cycle
+	if((addr_abs & 0xFF00) != (high << 8))
+		return 1;
+	else 
+		return 0;
+
+}
+
+uint8_t olc6502::ABY() {								// Absolute Addressing Y-reg offset
+	uint16_t low = read(pc);
+	pc++;
+	uint16_t high = read(pc);
+	pc++;
+
+	addr_abs = (high << 8) | low;
+	addr_abs += y;
+
+	// Do we need an extra cpu cycle
+	if((addr_abs & 0xFF00) != (high << 8))
+		return 1;
+	else 
+		return 0;
+
+}
+
+uint8_t olc6502::IND() {								// Indirect Addressing
+	uint16_t ptr_low = read(pc);
+	pc++;
+	uint16_t ptr_high = read(pc);
+	pc++;
+
+	uint16_t ptr = (ptr_high << 8) | ptr_low;
+
+	// 6502 Bug xxFF-Page Increase
+	if(ptr_low == 0x00FF) {
+		addr_abs = (read(ptr & 0xFF00) << 8) | read(ptr + 0);
+	}else {
+		addr_abs = (read(ptr + 1 ) << 8) | read(ptr + 0);
+	}
+}
+
+uint8_t olc6502::IZX()
+{
+	uint16_t t = read(pc);
+	pc++;
+
+	uint16_t low = read((uint16_t)(t + (uint16_t)x) & 0x00FF);
+	uint16_t high = read((uint16_t)(t + (uint16_t)x + 1) & 0x00FF);
+
+	addr_abs = (high << 8) | low;
+	
+	return 0;
+}
+
+uint8_t olc6502::IZY()
+{
+	uint16_t t = read(pc);
+	pc++;
+
+	uint16_t low = read(t & 0x00FF);
+	uint16_t high = read((t + 1) & 0x00FF);
+
+	addr_abs = (high << 8) | low;
+	addr_abs += y;
+	
+	if ((addr_abs & 0xFF00) != (high << 8))
+		return 1;
+	else
+		return 0;
+}
+
+uint8_t olc6502::REL() {								// Relative Addressing mode
+	addr_rel = read(pc);
+	pc++;
+	if (addr_rel & 0x80)
+		addr_rel |= 0xFF00;
+	return 0;
+}
