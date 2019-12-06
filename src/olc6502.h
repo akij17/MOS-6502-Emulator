@@ -129,7 +129,7 @@ class olc6502 {
     uint8_t a = 0x00;                           // Accumulator Register
     uint8_t x = 0x00;                           // X Register
     uint8_t y = 0x00;                           // Y Register
-    uint8_t stack_pointer = 0x00;               // Stack Pointer
+    uint8_t stack_ptr = 0x00;               // Stack Pointer
     uint8_t pc = 0x00                           // Program counter
     uint8_t status = 0x00;                      // Status Register
 
