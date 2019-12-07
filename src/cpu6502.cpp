@@ -291,7 +291,65 @@ uint8_t cpu6502::AND() {
 	return 1;
 }
 
-// Branch
+// Bitwise OR
+uint8_t cpu6502::ORA()
+{
+	fetch();
+	a = a | fetched;
+	setFlag(Z, a == 0x00);
+	setFlag(N, a & 0x80);
+	return 1;
+}
+
+// Compare A-reg
+uint8_t cpu6502::CMP()
+{
+	fetch();
+	uint16_t temp = (uint16_t)a - (uint16_t)fetched;
+	setFlag(C, a >= fetched);
+	setFlag(Z, (temp & 0x00FF) == 0x0000);
+	setFlag(N, temp & 0x0080);
+	return 1;
+}
+
+// Compare X-reg
+uint8_t cpu6502::CPX()
+{
+	fetch();
+	uint16_t temp = (uint16_t)x - (uint16_t)fetched;
+	setFlag(C, x >= fetched);
+	setFlag(Z, (temp & 0x00FF) == 0x0000);
+	setFlag(N, temp & 0x0080);
+	return 0;
+}
+
+// Compare Y-reg
+uint8_t cpu6502::CPY()
+{
+	fetch();
+	uint16_t temp = (uint16_t)y - (uint16_t)fetched;
+	setFlag(C, y >= fetched);
+	setFlag(Z, (temp & 0x00FF) == 0x0000);
+	setFlag(N, temp & 0x0080);
+	return 0;
+}
+
+// Left Shift Operator
+uint8_t cpu6502::ASL() {
+	fetch();
+	uint16_t temp = (uint16_t)fetched << 1;
+	setFlag(C, (temp & 0xFF00) > 0);
+	setFlag(Z, (temp & 0x00FF) == 0x00);
+	setFlag(N, temp & 0x80);
+	if (lookup[opcode].addrmode == &cpu6502::IMP)
+		a = temp & 0x00FF;
+	else
+		write(addr_abs, temp & 0x00FF);
+	return 0;
+}
+
+// Branching operations
+// Branch if Carry Set
 uint8_t cpu6502::BCS() {
 	if(getFlag(C) == 1) {
 		cycles++;
@@ -303,6 +361,149 @@ uint8_t cpu6502::BCS() {
 		pc = addr_abs;
 	}
 
+	return 0;
+}
+
+// Branch if Carry Clear
+uint8_t cpu6502::BCC()
+{
+	if (getFlag(C) == 0)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+		
+		if((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+		
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+// Branch if Equal
+uint8_t cpu6502::BEQ()
+{
+	if (getFlag(Z) == 1)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+// Branch if Negative
+uint8_t cpu6502::BMI()
+{
+	if (getFlag(N) == 1)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+// Branch if NOT Equal
+uint8_t cpu6502::BNE()
+{
+	if (getFlag(Z) == 0)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+// Branch if Positive
+uint8_t cpu6502::BPL()
+{
+	if (getFlag(N) == 0)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+// Branch if Overflow Clear
+uint8_t cpu6502::BVC()
+{
+	if (getFlag(V) == 0)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+// Branch if Overflow Set
+uint8_t cpu6502::BVS()
+{
+	if (getFlag(V) == 1)
+	{
+		cycles++;
+		addr_abs = pc + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (pc & 0xFF00))
+			cycles++;
+
+		pc = addr_abs;
+	}
+	return 0;
+}
+
+
+uint8_t cpu6502::BIT()
+{
+	fetch();
+	uint16_t temp = a & fetched;
+	setFlag(Z, (temp & 0x00FF) == 0x00);
+	setFlag(N, fetched & (1 << 7));
+	setFlag(V, fetched & (1 << 6));
+	return 0;
+}
+
+// Break
+uint8_t cpu6502::BRK()
+{
+	pc++;
+	
+	setFlag(I, 1);
+	write(0x0100 + stack_ptr, (pc >> 8) & 0x00FF);
+	stack_ptr--;
+	write(0x0100 + stack_ptr, pc & 0x00FF);
+	stack_ptr--;
+
+	setFlag(B, 1);
+	write(0x0100 + stack_ptr, status);
+	stack_ptr--;
+	setFlag(B, 0);
+
+	pc = (uint16_t)read(0xFFFE) | ((uint16_t)read(0xFFFF) << 8);
 	return 0;
 }
 
@@ -319,13 +520,13 @@ uint8_t cpu6502::CLD() {
 
 uint8_t cpu6502::CLI()
 {
-	SetFlag(I, false);
+	setFlag(I, false);
 	return 0;
 }
 
 uint8_t cpu6502::CLV()
 {
-	SetFlag(V, false);
+	setFlag(V, false);
 	return 0;
 }
 
@@ -374,6 +575,7 @@ uint8_t cpu6502::PHA() {
 	return 0;
 }
 
+// Pop A-reg from STACK
 uint8_t cpu6502::PLA() {
 	stack_ptr++;
 	a = read(0x0100 + stack_ptr);
@@ -385,14 +587,129 @@ uint8_t cpu6502::PLA() {
 
 uint8_t cpu6502::RTI()
 {
-	stkp++;
-	status = read(0x0100 + stkp);
+	stack_ptr++;
+	status = read(0x0100 + stack_ptr);
 	status &= ~B;
 	status &= ~U;
 
-	stkp++;
-	pc = (uint16_t)read(0x0100 + stkp);
-	stkp++;
-	pc |= (uint16_t)read(0x0100 + stkp) << 8;
+	stack_ptr++;
+	pc = (uint16_t)read(0x0100 + stack_ptr);
+	stack_ptr++;
+	pc |= (uint16_t)read(0x0100 + stack_ptr) << 8;
+	return 0;
+}
+
+
+uint8_t cpu6502::RTS()
+{
+	stack_ptr++;
+	pc = (uint16_t)read(0x0100 + stack_ptr);
+	stack_ptr++;
+	pc |= (uint16_t)read(0x0100 + stack_ptr) << 8;
+	
+	pc++;
+	return 0;
+}
+
+// Set Carry Bit Flag
+uint8_t cpu6502::SEC()
+{
+	setFlag(C, true);
+	return 0;
+}
+
+// Enable Decimals Flag
+uint8_t cpu6502::SED()
+{
+	setFlag(D, true);
+	return 0;
+}
+
+// Enable Interrupts Flag
+uint8_t cpu6502::SEI()
+{
+	setFlag(I, true);
+	return 0;
+}
+
+// Store A-reg as Address
+uint8_t cpu6502::STA()
+{
+	write(addr_abs, a);
+	return 0;
+}
+
+// Store X-reg as Address
+uint8_t cpu6502::STX()
+{
+	write(addr_abs, x);
+	return 0;
+}
+
+// Store Y-reg as Address
+uint8_t cpu6502::STY()
+{
+	write(addr_abs, y);
+	return 0;
+}
+
+
+Transfer A-reg to X-reg
+uint8_t cpu6502::TAX()
+{
+	x = a;
+	setFlag(Z, x == 0x00);
+	setFlag(N, x & 0x80);
+	return 0;
+}
+
+uint8_t cpu6502::TAY()
+{
+	y = a;
+	setFlag(Z, y == 0x00);
+	setFlag(N, y & 0x80);
+	return 0;
+}
+
+uint8_t cpu6502::TSX()
+{
+	x = stack_ptr;
+	setFlag(Z, x == 0x00);
+	setFlag(N, x & 0x80);
+	return 0;
+}
+
+
+//Transfer X-reg to A-reg
+uint8_t cpu6502::TXA()
+{
+	a = x;
+	setFlag(Z, a == 0x00);
+	setFlag(N, a & 0x80);
+	return 0;
+}
+
+
+// Transfer X-reg to Stack Pointer
+uint8_t cpu6502::TXS()
+{
+	stack_ptr = x;
+	return 0;
+}
+
+
+// Transfer Y-reg to A-reg
+uint8_t cpu6502::TYA()
+{
+	a = y;
+	setFlag(Z, a == 0x00);
+	setFlag(N, a & 0x80);
+	return 0;
+}
+
+
+// Capture Illegal Operations
+uint8_t cpu6502::XXX()
+{
 	return 0;
 }
